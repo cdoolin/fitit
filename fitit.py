@@ -1,5 +1,13 @@
-VERSION = 4
+# fitit.py
+#
+#
+# changelog:
+#   5: added support for simultaneous fits
+#
+VERSION = 5
+
 from scipy import optimize
+from numpy import ravel, asarray, asanyarray
 
 
 # utility class to keep track of fitting parameters.  Can both accept a ndarray 
@@ -57,7 +65,7 @@ class Params(object):
 
     def __repr__(self):
         padding = max([len(p) for p in self.params]) + 1
-        instr = "%" + str(padding) + "s: %f"
+        instr = "%" + str(padding) + "s: %g"
         return "\n".join(
             [instr % (p, self.__getattribute__(p)) for p in self.params])
 
@@ -79,10 +87,25 @@ class Params(object):
 
 
 def fit(func, x, y, p0, sigma=1., fitinfo=False, fillbaderrs=None):
+    if not isinstance(p0, Params):
+        msg = "expected p0 to be a Params object"
+        raise TypeError(msg)
+
+    # convert x and y in case they are lists / tuples
+    y = asanyarray(y)
+    x = asanyarray(x)
+
     def residual(params):
         p = Params(like=p0, fitvals=params)
-        return abs(func(x, p) - y) / sigma
-        
+        f = func(x, p)
+        if isinstance(f, (list, tuple)):
+            # `func` should return same shape as y.
+            # convert from list for convenience.
+            f = asarray(f)
+
+        # flatten residuals so simultaneus fits work
+        return ravel(abs(f - y) / sigma)
+
     # taken from scipy's curve_fit
     r = optimize.leastsq(residual, p0.fitvals(), full_output=True)
     popt, pcov, info, errmsg, ier = r
@@ -91,8 +114,9 @@ def fit(func, x, y, p0, sigma=1., fitinfo=False, fillbaderrs=None):
         print("Warning, optimal parameters not found: " + errmsg)
         #raise RuntimeError(msg)
 
-    if (len(y) > len(p0.fitparams())) and pcov is not None:
-        s_sq = (residual(popt)**2).sum()/(len(y)-len(p0.fitparams()))
+    # count x, not y (like curve_fit) so simultaneus fits work.
+    if (len(x) > len(p0.fitparams())) and pcov is not None:
+        s_sq = (residual(popt)**2).sum()/(len(x)-len(p0.fitparams()))
         pcov = pcov * s_sq
         # diagonal should be variance
         errs = pcov.diagonal()**0.5
