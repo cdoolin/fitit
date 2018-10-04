@@ -3,11 +3,15 @@
 #
 # changelog:
 #   5: added support for simultaneous fits
-#
-VERSION = 5
+#   6: added bounds support with least_squares
+VERSION = 6
 
 from scipy import optimize
+
+import numpy as np
 from numpy import ravel, asarray, asanyarray
+
+from scipy.linalg import svd
 
 
 # utility class to keep track of fitting parameters.  Can both accept a ndarray 
@@ -86,7 +90,7 @@ class Params(object):
         return p
 
 
-def fit(func, x, y, p0, sigma=1., fitinfo=False, fillbaderrs=None):
+def fit(func, x, y, p0, sigma=1., bounds=None, method=None, fitinfo=False, fillbaderrs=None, **kwargs):
     if not isinstance(p0, Params):
         msg = "expected p0 to be a Params object"
         raise TypeError(msg)
@@ -106,13 +110,52 @@ def fit(func, x, y, p0, sigma=1., fitinfo=False, fillbaderrs=None):
         # flatten residuals so simultaneus fits work
         return ravel(abs(f - y) / sigma)
 
-    # taken from scipy's curve_fit
-    r = optimize.leastsq(residual, p0.fitvals(), full_output=True)
-    popt, pcov, info, errmsg, ier = r
+    if method is None:
+        if bounds is None:
+            method = 'lm'
+        else:
+            method = 'trf'
 
-    if ier not in [1, 2, 3, 4]:
-        print("Warning, optimal parameters not found: " + errmsg)
-        #raise RuntimeError(msg)
+    if bounds:
+        lb = bounds[0].fitvals()
+        ub = bounds[1].fitvals()
+        bounds = (lb, ub)
+        
+
+
+
+    if method == 'lm':
+        # taken from scipy's curve_fit
+        r = optimize.leastsq(residual, p0.fitvals(), full_output=True)
+        popt, pcov, info, errmsg, ier = r
+
+        if ier not in [1, 2, 3, 4]:
+            print("Warning, optimal parameters not found: " + errmsg)
+            #raise RuntimeError(msg)
+    else:
+        if 'max_nfev' not in kwargs:
+            kwargs['max_nfev'] = kwargs.pop('maxfev', None)
+
+        if bounds is None:
+            bounds = (-np.inf, np.inf)
+
+        r = res = optimize.least_squares(residual, p0.fitvals(), bounds=bounds, 
+                method=method, **kwargs)
+        
+        if not res.success:
+            raise RuntimeError("Optimal parameters not found: " + res.message)
+
+        popt = res.x
+
+        _, s, VT = svd(res.jac, full_matrices=False)
+        threshold = np.finfo(float).eps * max(res.jac.shape) * s[0]
+        s = s[s > threshold]
+        VT = VT[:s.size]
+        pcov = np.dot(VT.T / s**2, VT)
+
+        if fitinfo:
+            print("fitinfo unsupported with this method")
+            fitinfo = False
 
     # count x, not y (like curve_fit) so simultaneus fits work.
     if (len(x) > len(p0.fitparams())) and pcov is not None:
