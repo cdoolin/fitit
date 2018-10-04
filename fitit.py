@@ -146,6 +146,7 @@ def fit(func, x, y, p0, sigma=1., bounds=None, method=None, fitinfo=False, fillb
             raise RuntimeError("Optimal parameters not found: " + res.message)
 
         popt = res.x
+        errmsg = res.message
 
         _, s, VT = svd(res.jac, full_matrices=False)
         threshold = np.finfo(float).eps * max(res.jac.shape) * s[0]
