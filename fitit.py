@@ -125,6 +125,7 @@ def fit(func, x, y, p0, sigma=1., bounds=None, method=None, fitinfo=False, fillb
 
 
     if method == 'lm':
+        # use leastsq for fitting
         # taken from scipy's curve_fit
         r = optimize.leastsq(residual, p0.fitvals(), full_output=True)
         popt, pcov, info, errmsg, ier = r
@@ -133,6 +134,9 @@ def fit(func, x, y, p0, sigma=1., bounds=None, method=None, fitinfo=False, fillb
             print("Warning, optimal parameters not found: " + errmsg)
             #raise RuntimeError(msg)
     else:
+        # user least_squares for fitting
+        # taken from scipy's curve_fit (Oct 2018)
+
         if 'max_nfev' not in kwargs:
             kwargs['max_nfev'] = kwargs.pop('maxfev', None)
 
