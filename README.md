@@ -14,6 +14,7 @@ pip install git+https://github.com/cdoolin/fitit@master
 ## Usage
 
 ```python
+import fitit
 
 # Params class stores the fit variables and allows attribute access
 p0_peak = fitit.Params('A k f0_opt y0')
