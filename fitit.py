@@ -30,7 +30,7 @@ class Params(object):
             # parse params string for parameters
             ps = params.split()
             self.params = [p.replace('*', '') for p in ps]
-            self.tofit = [p.find('*') is -1 for p in ps]
+            self.tofit = [p.find('*') == -1 for p in ps]
             for p in self.params:
                 self.__setattr__(p, 1)
 
