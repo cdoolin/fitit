@@ -8,7 +8,7 @@ easily disabling a fit parameter.
 ## Install
 
 ```sh
-pip install git+https://github.com/cdoolin/fitit@master
+pip install fitit
 ```
 
 ## Usage
